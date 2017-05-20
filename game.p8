@@ -22,8 +22,8 @@ end
 
 function map_open(x, y)
  local solid = false
- for x=x,x+8 do
-  for y=y,y+8 do
+ for x=x,x+7 do
+  for y=y,y+7 do
    local n=mget(flr(x/8),flr(y/8))
    solid = solid or fget(n, 0)
   end
@@ -76,7 +76,6 @@ function player:update()
   self.vel.y-=self.thrust.y
  end
 
- self.collided={x=0,y=0}
  for d in all{'x','y'} do
   local p = {x=self.pos.x, y=self.pos.y}
   local from = self.pos[d]
@@ -85,7 +84,6 @@ function player:update()
    p[d] = v
    if not map_open(p.x, p.y) then
     self.vel[d]=0
-    self.collided[d]=v
     break
    else
     self.pos[d]=v
