@@ -5,22 +5,32 @@ g=0.3
 player={
  pos={x=64,y=64},
  jumping=false,
+ clinging=false,
  flipped=false,
  vel={x=0,y=0},
 	sprites={
   walk={1,2,3,2},
   jump=4,
+  cling=5,
  },
 	keys={
 	 l=0,r=1,j=4,s=5
 	},
-	thrust={x=1.5,y=5},
+	thrust={x=2,y=4.25,j=1},
  animdist=0,
 }
+
+function ceil(x)
+ return -flr(-x)
+end
 
 -- returns 1 if x is positive, -1 if x is negative
 function sign(x)
  return x/abs(x)
+end
+
+function xor(a,b)
+ return (a or b) and not (a and b)
 end
 
 -- returns 1 if x is positive, -1 if x is negative
@@ -29,10 +39,12 @@ function sign0(x)
  return sign(x)
 end
 
-function map_open(x, y)
+function map_open(x, y, w, h)
+ if (w==nil) w=7
+ if (h==nil) h=7
  local solid = false
- for x=x,x+7 do
-  for y=y,y+7 do
+ for x=x,x+w do
+  for y=y,y+h do
    local n=mget(flr(x/8),flr(y/8))
    solid = solid or fget(n, 0)
   end
@@ -68,51 +80,75 @@ end
 
 function player:update()
  local dx=0
- if btn(self.keys.l) then
-  dx=-self.thrust.x
-  self.flipped=true
- end
  if btnp(self.keys.s) then
   make_bullet(self.pos.x, self.pos.y, self.flipped)
  end
- if btn(self.keys.r) then
-  dx=self.thrust.x
-  self.flipped=false
+ if xor(btn(self.keys.l), btn(self.keys.r)) then
+  self.flipped=btn(self.keys.l)
+  dx=self.thrust.x/20
+  if (self.flipped) dx=-dx
+ elseif self.vel.x!=0 then
+  dx=self.thrust.x/30*-sign0(self.vel.x)
+  if abs(dx)>abs(self.vel.x) then
+   dx=-self.vel.x
+  end
  end
- self.vel.x=dx
- self.animdist+=abs(dx)
+ self.vel.x+=dx
+ if self.vel.x>0 then
+  self.vel.x=min(self.vel.x,self.thrust.x)
+ elseif self.vel.x<0 then
+  self.vel.x=max(self.vel.x,-self.thrust.x)
+ end
+
+ self.animdist+=abs(self.vel.x)
  self.jetpack=false
  if not btn(self.keys.j) then
   self.jq=false
  elseif not self.jq then
-  if self.jumping then
-   self.vel.y=-self.thrust.y/5
+  if self.jumping and not self.clinging then
+   self.vel.y=-self.thrust.j
    self.jetpack=true
   else
-   self.vel.y=-self.thrust.y
+   if self.clinging then
+    self.vel.y=-self.thrust.y*0.7
+    self.vel.x=-self.thrust.x*0.5
+   else
+    self.vel.y=-self.thrust.y
+   end
    self.jq = true
   end
  end
 
  for d in all{'x','y'} do
-  local p = {x=self.pos.x, y=self.pos.y}
-  local from = self.pos[d]
-  local to = from+self.vel[d]
-  for v = from,to,sign(self.vel[d]) do
-   p[d] = v
-   if not map_open(p.x, p.y) then
-    self.vel[d]=0
-    break
-   else
-    self.pos[d]=v
+  if self.vel[d] != 0 then
+   local p = {x=self.pos.x, y=self.pos.y}
+   local from = self.pos[d]
+   local to = from+self.vel[d]
+   local prev = from
+   local out=flr(to)+sign(self.vel[d])
+   for v = from,out,sign(self.vel[d]) do
+    p[d] = v
+    if not map_open(p.x, p.y) then
+     self.vel[d]=0
+     to = prev
+     break
+    else
+     prev = v
+    end
    end
+   self.pos[d]=to
   end
  end
  self.jumping=map_open(self.pos.x, self.pos.y+1)
+ self.clinging=self.jumping and not map_open(self.pos.x-1, self.pos.y, 9,4)
+ self.clinging=self.clinging and not self.jetpack
+ self.clinging=self.clinging and self.vel.x!=0
 end
 
 function player:sprite()
- if self.jumping then
+ if self.clinging then
+  return self.sprites.cling
+ elseif self.jumping then
   return self.sprites.jump
  else
   return self.sprites.walk[1+(flr(self.animdist/8) % #self.sprites.walk)]
@@ -151,14 +187,14 @@ function _draw()
 end
 
 __gfx__
-0000000000222900002229000022290000222900000000000000000000000000000000000000000000000000000000000000000000000000000000000bbbbbbb
-000000000002990000029900000299000002990000000000000000000000000000000000000000000000000000000000000000000000000000000000bb333103
-007007000066666600666666006666660066666600000000000000000000000000000000000000000000000000000000000000000000000000000000b3311103
-000770006662997766629977666299776662997700000000000000000000000000000000000000000000000000000000000000000000000000000000b3110113
-000770000052299000222990002229900022299000000000000000000000000000000000000000000000000000000000000000000000000000000000b3100103
-007007000055200000222000002200000022000000000000000000000000000000000000000000000000000000000000000000000000000000000000b0111133
-000000000550220000522000022550000522000000000000000000000000000000000000000000000000000000000000000000000000000000000000b0100333
-000000000500020000520000020050000520000000000000000000000000000000000000000000000000000000000000000000000000000000000000b3333330
+0000000000222900002229000022290000222900000092220000000000000000000000000000000000000000000000000000000000000000000000000bbbbbbb
+000000000002990000029900000299000002990000009926000000000000000000000000000000000000000000000000000000000000000000000000bb333103
+007007000066666600666666006666660066666606666660000000000000000000000000000000000000000000000000000000000000000000000000b3311103
+000770006662997766629977666299776662997700779925000000000000000000000000000000000000000000000000000000000000000000000000b3110113
+000770000052299000222990002229900022299000099225000000000000000000000000000000000000000000000000000000000000000000000000b3100103
+007007000055200000222000002200000022000000000225000000000000000000000000000000000000000000000000000000000000000000000000b0111133
+000000000550220000522000022550000522000000000022000000000000000000000000000000000000000000000000000000000000000000000000b0100333
+000000000500020000520000020050000520000000000002000000000000000000000000000000000000000000000000000000000000000000000000b3333330
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000001000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 1d01dccc001d01dcd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
