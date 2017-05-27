@@ -7,6 +7,8 @@ player={
  jumping=false,
  clinging=false,
  flipped=false,
+ jetfuelmax=40,
+ jetfuel=0,
  vel={x=0,y=0},
 	sprites={
   walk={1,2,3,2},
@@ -105,14 +107,14 @@ function player:update()
  if not btn(self.keys.j) then
   self.jq=false
  elseif not self.jq then
-  if self.jumping and not self.clinging then
+  if self.jetfuel>0 and self.jumping and not self.clinging then
    self.vel.y=-self.thrust.j
    self.jetpack=true
   else
    if self.clinging then
     self.vel.y=-self.thrust.y*0.7
     self.vel.x=-self.thrust.x*0.5
-   else
+   elseif not self.jumping then
     self.vel.y=-self.thrust.y
    end
    self.jq = true
@@ -143,6 +145,12 @@ function player:update()
  self.clinging=self.jumping and not map_open(self.pos.x-1, self.pos.y, 9,4)
  self.clinging=self.clinging and not self.jetpack
  self.clinging=self.clinging and self.vel.x!=0
+
+ if self.jetpack then
+  self.jetfuel-=1
+ elseif not self.jumping then
+  self.jetfuel=self.jetfuelmax
+ end
 end
 
 function player:sprite()
